@@ -1,0 +1,17 @@
+torch>=2.0
+scikit-learn
+pandas
+numpy
+underthesea          # primary Vietnamese tokenizer
+pyvi                 # fallback Vietnamese tokenizer
+tensorboard
+
+# Augmentation (Section 4.1)
+imbalanced-learn     # SMOTE (Technique 3)
+transformers         # Back-translation MarianMT models (Technique 2)
+sentencepiece        # required by MarianMT tokenizer
+sacremoses           # required by MarianMT tokenizer
+
+# FastText pre-trained vectors (Technique 1 SR/RI + Technique 3 SMOTE):
+# Download cc.vi.300.vec from https://fasttext.cc/docs/en/crawl-vectors.html
+# and set fasttext_path in config.py

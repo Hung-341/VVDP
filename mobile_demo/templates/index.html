@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VVDP — Zalo Demo Tester</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     TESTING PANEL (desktop sidebar)
+════════════════════════════════════════════════════════════════════════ -->
+<div class="testing-panel" id="testingPanel">
+  <div class="tp-header">
+    <div class="tp-title">
+      <span class="tp-icon">🧪</span>
+      <span>VVDP Testing Panel</span>
+    </div>
+    <div class="tp-subtitle">Vietnamese Vishing Detection — Mobile Demo</div>
+  </div>
+
+  <!-- Scenario selector -->
+  <div class="tp-section">
+    <div class="tp-section-title">Chọn kịch bản cuộc gọi</div>
+    <div class="scenario-list" id="scenarioList">
+      {% for s in scenarios %}
+      <div class="scenario-card {{ s.call_type }}" data-id="{{ s.id }}" onclick="selectScenario('{{ s.id }}')">
+        <div class="sc-avatar" style="background:{{ s.caller_color }}">{{ s.caller_avatar }}</div>
+        <div class="sc-info">
+          <div class="sc-name">{{ s.caller_name }}</div>
+          <div class="sc-desc">{{ s.description }}</div>
+        </div>
+        <div class="sc-badge {{ s.call_type }}">{{ s.expected_label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Run controls -->
+  <div class="tp-section">
+    <div class="tp-section-title">Điều khiển</div>
+    <button class="tp-btn primary" id="btnSimulateCall" onclick="simulateIncomingCall()" disabled>
+      📲 Gọi đến (giả lập)
+    </button>
+    <button class="tp-btn secondary" onclick="runAllScenarios()" id="btnRunAll">
+      ▶️ Chạy tất cả kịch bản
+    </button>
+  </div>
+
+  <!-- Detection stats -->
+  <div class="tp-section">
+    <div class="tp-section-title">Kết quả phát hiện</div>
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-val" id="statProb">—</div>
+        <div class="stat-label">Xác suất lừa đảo</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statLabel">—</div>
+        <div class="stat-label">Phân loại</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statConf">—</div>
+        <div class="stat-label">Độ tin cậy</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statMode">—</div>
+        <div class="stat-label">Chế độ</div>
+      </div>
+    </div>
+    <!-- probability meter -->
+    <div class="prob-meter-wrap">
+      <div class="prob-meter-bar">
+        <div class="prob-meter-fill" id="probMeterFill" style="width:0%"></div>
+      </div>
+      <div class="prob-meter-labels">
+        <span>An toàn</span><span>Nguy hiểm</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signals -->
+  <div class="tp-section" id="signalsSection" style="display:none">
+    <div class="tp-section-title">Từ khóa phát hiện được</div>
+    <div class="signals-list" id="signalsList"></div>
+  </div>
+
+  <!-- Transcript log -->
+  <div class="tp-section">
+    <div class="tp-section-title">Nội dung cuộc gọi</div>
+    <div class="transcript-log" id="transcriptLog">
+      <div class="tl-empty">Chưa có cuộc gọi nào...</div>
+    </div>
+  </div>
+
+  <!-- Batch test results -->
+  <div class="tp-section" id="batchResults" style="display:none">
+    <div class="tp-section-title">Kết quả kiểm tra hàng loạt</div>
+    <div class="batch-table-wrap">
+      <table class="batch-table" id="batchTable">
+        <thead>
+          <tr><th>Kịch bản</th><th>Dự đoán</th><th>Thực tế</th><th>Đúng?</th><th>Xác suất</th></tr>
+        </thead>
+        <tbody id="batchTableBody"></tbody>
+      </table>
+    </div>
+    <div class="batch-summary" id="batchSummary"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     MOBILE PHONE FRAME
+════════════════════════════════════════════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="phone-frame">
+    <!-- Notch -->
+    <div class="phone-notch">
+      <div class="notch-camera"></div>
+      <div class="notch-speaker"></div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span class="sb-time" id="sbTime">09:41</span>
+      <div class="sb-icons">
+        <span>▶</span><span>📶</span><span>🔋</span>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: Chat List ── -->
+    <div class="screen active" id="screenChat">
+      <!-- Zalo header -->
+      <div class="zalo-header">
+        <div class="zh-logo">Zalo</div>
+        <div class="zh-actions">
+          <button class="zh-btn" title="Tìm kiếm">🔍</button>
+          <button class="zh-btn" title="Thêm">➕</button>
+        </div>
+      </div>
+
+      <!-- Search bar -->
+      <div class="search-bar">
+        <span class="sb-icon">🔍</span>
+        <input type="text" placeholder="Tìm kiếm" readonly>
+      </div>
+
+      <!-- Chat list -->
+      <div class="chat-list" id="chatList">
+        {% for s in scenarios %}
+        <div class="chat-item" onclick="selectScenario('{{ s.id }}'); simulateIncomingCall()">
+          <div class="ci-avatar" style="background:{{ s.caller_color }}">
+            {{ s.caller_avatar }}
+            {% if s.call_type == 'scam' %}
+            <div class="ci-warning-dot">!</div>
+            {% endif %}
+          </div>
+          <div class="ci-body">
+            <div class="ci-top">
+              <span class="ci-name">{{ s.caller_name }}</span>
+              <span class="ci-time">{{ loop.index }}m</span>
+            </div>
+            <div class="ci-preview">{{ s.description }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Bottom nav -->
+      <div class="bottom-nav">
+        <div class="bn-item active"><span>💬</span><span>Tin nhắn</span></div>
+        <div class="bn-item"><span>👥</span><span>Danh bạ</span></div>
+        <div class="bn-item"><span>🔍</span><span>Khám phá</span></div>
+        <div class="bn-item"><span>⏰</span><span>Nhật ký</span></div>
+        <div class="bn-item"><span>👤</span><span>Cá nhân</span></div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: Incoming Call ── -->
+    <div class="screen" id="screenIncoming">
+      <div class="incoming-bg"></div>
+      <div class="incoming-content">
+        <div class="ic-label">Cuộc gọi đến</div>
+        <div class="ic-avatar" id="icAvatar">?</div>
+        <div class="ic-name" id="icName">Đang kết nối...</div>
+        <div class="ic-phone" id="icPhone">---</div>
+        <div class="ic-subtitle">Zalo</div>
+
+        <!-- Ringing animation -->
+        <div class="ic-ripple">
+          <div class="ripple r1"></div>
+          <div class="ripple r2"></div>
+          <div class="ripple r3"></div>
+        </div>
+
+        <div class="ic-actions">
+          <div class="ic-action-wrap">
+            <button class="ic-btn decline" onclick="declineCall()">📵</button>
+            <span>Từ chối</span>
+          </div>
+          <div class="ic-action-wrap">
+            <button class="ic-btn msg" onclick="declineCall()">💬</button>
+            <span>Nhắn tin</span>
+          </div>
+          <div class="ic-action-wrap">
+            <button class="ic-btn accept" onclick="acceptCall()">📞</button>
+            <span>Chấp nhận</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: Active Call ── -->
+    <div class="screen" id="screenCall">
+      <!-- Detection alert banner -->
+      <div class="detection-banner" id="detectionBanner">
+        <div class="db-icon">⚠️</div>
+        <div class="db-text">
+          <div class="db-title">Phát hiện lừa đảo!</div>
+          <div class="db-sub" id="dbSub">Cuộc gọi này có dấu hiệu vishing</div>
+        </div>
+      </div>
+
+      <div class="call-header">
+        <div class="call-avatar-wrap">
+          <div class="call-avatar" id="callAvatar">?</div>
+          <div class="call-ripple" id="callRipple">
+            <div class="cr1"></div><div class="cr2"></div>
+          </div>
+        </div>
+        <div class="call-name" id="callName">---</div>
+        <div class="call-phone" id="callPhone">---</div>
+        <div class="call-status" id="callStatus">Đang kết nối...</div>
+        <div class="call-timer" id="callTimer">00:00</div>
+      </div>
+
+      <!-- Live probability meter -->
+      <div class="live-meter">
+        <div class="lm-label">
+          <span>Phân tích giọng nói</span>
+          <span class="lm-pct" id="lmPct">0%</span>
+        </div>
+        <div class="lm-bar">
+          <div class="lm-fill" id="lmFill" style="width:0%"></div>
+        </div>
+        <div class="lm-scale">
+          <span>An toàn</span>
+          <span>Đáng ngờ</span>
+          <span>Nguy hiểm</span>
+        </div>
+      </div>
+
+      <!-- Live transcript -->
+      <div class="live-transcript">
+        <div class="lt-header">Nội dung cuộc gọi</div>
+        <div class="lt-body" id="liveTranscript">
+          <div class="lt-waiting">⏳ Đang nghe...</div>
+        </div>
+      </div>
+
+      <!-- Call controls -->
+      <div class="call-controls">
+        <div class="cc-row">
+          <button class="cc-btn" onclick="toggleMute(this)"><span>🎙️</span><span>Tắt tiếng</span></button>
+          <button class="cc-btn" onclick="toggleSpeaker(this)"><span>🔊</span><span>Loa ngoài</span></button>
+          <button class="cc-btn"><span>📹</span><span>Video</span></button>
+        </div>
+        <button class="cc-hangup" onclick="hangUp()">📵</button>
+      </div>
+    </div>
+
+    <!-- Home bar -->
+    <div class="home-bar"></div>
+  </div><!-- /phone-frame -->
+</div><!-- /phone-wrap -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     WARNING OVERLAY (full-screen alert)
+════════════════════════════════════════════════════════════════════════ -->
+<div class="warning-overlay" id="warningOverlay">
+  <div class="wo-card">
+    <div class="wo-icon">🚨</div>
+    <div class="wo-title">CẢNH BÁO LỪA ĐẢO!</div>
+    <div class="wo-body" id="woBody">
+      Hệ thống phát hiện dấu hiệu cuộc gọi lừa đảo (vishing) với xác suất cao.
+      Không cung cấp thông tin cá nhân hay chuyển tiền!
+    </div>
+    <div class="wo-prob-wrap">
+      <div class="wo-prob-label">Xác suất lừa đảo</div>
+      <div class="wo-prob-val" id="woProbVal">0%</div>
+    </div>
+    <div class="wo-signals" id="woSignals"></div>
+    <div class="wo-actions">
+      <button class="wo-btn danger" onclick="hangUp(); closeWarning()">🚫 Cúp máy ngay</button>
+      <button class="wo-btn secondary" onclick="closeWarning()">⚠️ Tiếp tục cẩn thận</button>
+    </div>
+  </div>
+</div>
+
+<!-- call ended overlay -->
+<div class="call-ended-overlay" id="callEndedOverlay">
+  <div class="ceo-card">
+    <div class="ceo-avatar" id="ceoAvatar">?</div>
+    <div class="ceo-name" id="ceoName">---</div>
+    <div class="ceo-duration" id="ceoDuration">00:00</div>
+    <div class="ceo-result" id="ceoResult"></div>
+    <button class="ceo-btn" onclick="closeCallEnded()">Đóng</button>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
